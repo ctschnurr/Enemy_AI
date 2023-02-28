@@ -27,6 +27,8 @@ public class EnemyController : MonoBehaviour
     Transform waypoint;
     Transform waypoint1;
     Transform waypoint2;
+    Transform waypoint3;
+    Transform waypoint4;
 
 
     // Start is called before the first frame update
@@ -34,15 +36,15 @@ public class EnemyController : MonoBehaviour
     {
         waypoint1 = GameObject.Find("waypoint1").transform;
         waypoint2 = GameObject.Find("waypoint2").transform;
+        waypoint3 = GameObject.Find("waypoint3").transform;
+        waypoint4 = GameObject.Find("waypoint4").transform;
 
         waypoint = waypoint1;
-        //waypoint3 = GameObject.Find("waypoint3").transform;
-        //waypoint4 = GameObject.Find("waypoint4").transform;
 
         waypoints.Add(waypoint1);
         waypoints.Add(waypoint2);
-        //waypoints.Add(waypoint3);
-        //waypoints.Add(waypoint4);
+        waypoints.Add(waypoint3);
+        waypoints.Add(waypoint4);
 
         player = GameObject.Find("Player").gameObject;
         UnityEngine.AI.NavMeshAgent enemy = GetComponent<UnityEngine.AI.NavMeshAgent>();
