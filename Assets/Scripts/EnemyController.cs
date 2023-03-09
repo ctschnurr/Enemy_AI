@@ -10,13 +10,15 @@ public class EnemyController : MonoBehaviour
     {
         patrolling,
         chasing,
+        tracking,
         searching,
         attacking,
         retreating
     }
 
-    State state = State.patrolling;
-    public UnityEngine.AI.NavMeshAgent enemy;
+    public State state = State.patrolling;
+    public UnityEngine.AI.NavMeshAgent enemyAgent;
+    GameObject enemyObject;
     GameObject enemyColor;
     Transform enemyBase;
 
@@ -33,6 +35,8 @@ public class EnemyController : MonoBehaviour
     Vector3 playerPosition = new Vector3(0, 0, 0);
     Vector3 playerLastPosition = new Vector3(0, 0, 0);
     float playerDist;
+
+    float speed = 50;
 
     // Start is called before the first frame update
     void Start()
@@ -59,7 +63,8 @@ public class EnemyController : MonoBehaviour
         player = GameObject.Find("Player").gameObject;
 
         // find the enemy game object's navmesh agent component and assign it to the variable
-        UnityEngine.AI.NavMeshAgent enemy = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        enemyAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        enemyObject = transform.gameObject;
 
         // get the component of the enemy prefab that changes color with state changes
         enemyColor = transform.Find("Color").gameObject;
@@ -68,59 +73,54 @@ public class EnemyController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
-
-
-
         // grab player's current position
         playerPosition = player.transform.position;
 
         // the enemy will behave according to its current state:
-        // note, the code commented out below is for distance based player detection.
-        // that is currently disabled as player detection is handled by the Cone of Vision.
         switch (state)
         {
             case State.patrolling:
-                enemy.SetDestination(nextWaypoint.position);
+                enemyAgent.SetDestination(nextWaypoint.position);
                 if (Vector3.Distance(nextWaypoint.position, transform.position) < 1) nextWaypoint = NextWaypoint(nextWaypoint);
-                //if (Vector3.Distance(playerPosition, transform.position) < 6) SetState(State.chasing);
-
-
+                if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
 
             case State.chasing:
-                enemy.SetDestination(playerPosition);
-                //if (Vector3.Distance(playerPosition, transform.position) > 8) SetState(State.searching);
+                enemyAgent.SetDestination(playerPosition);
                 if (Vector3.Distance(playerPosition, transform.position) < 2) SetState(State.attacking);
                 break;
 
-            case State.searching:
-                enemy.SetDestination(playerLastPosition);
-                if (Vector3.Distance(playerLastPosition, transform.position) < 1) SetState(State.retreating);
+            case State.tracking:
+                enemyAgent.SetDestination(playerLastPosition);
+                if (Vector3.Distance(playerLastPosition, transform.position) < 1) SetState(State.searching);
                 //if (Vector3.Distance(playerPosition, transform.position) < 8) SetState(State.chasing);
                 break;
 
             case State.attacking:
-                enemy.isStopped = true;
                 if (Vector3.Distance(playerPosition, transform.position) > 2)
                 {
-                    enemy.isStopped = false;
+                    enemyAgent.isStopped = false;
                     SetState(State.chasing);
                 }
                 break;
 
             case State.retreating:
-                enemy.SetDestination(enemyBase.position);
+                enemyAgent.SetDestination(enemyBase.position);
                 if (Vector3.Distance(enemyBase.position, transform.position) < 1) SetState(State.patrolling);
-                //if (Vector3.Distance(playerPosition, transform.position) < 6) SetState(State.chasing);
+                if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
+
+            case State.searching:
+                transform.Rotate(Vector3.up * (speed * Time.deltaTime));
+                break;
+
         }
     }
 
     // this method switches the state and makes any other associated changes, like the enemy mood indicator color
     public void SetState(State input)
     {
-        if (enemy.isStopped == true) enemy.isStopped = false;
+        if (enemyAgent.isStopped == true) enemyAgent.isStopped = false;
         switch (input)
         {
             case State.patrolling:
@@ -133,21 +133,38 @@ public class EnemyController : MonoBehaviour
                 enemyColor.GetComponent<Renderer>().material.color = Color.yellow;
                 break;
 
-            case State.searching:
+            case State.tracking:
                 playerLastPosition = player.transform.position;
-                state = State.searching;
+                state = State.tracking;
                 enemyColor.GetComponent<Renderer>().material.color = Color.blue;
                 break;
 
             case State.attacking:
+                enemyAgent.isStopped = true;
                 enemyColor.GetComponent<Renderer>().material.color = Color.red;
                 state = State.attacking;
                 break;
 
             case State.retreating:
-                enemyColor.GetComponent<Renderer>().material.color = Color.white;
+                enemyColor.GetComponent<Renderer>().material.color = Color.black;
                 state = State.retreating;
                 break;
+
+            case State.searching:
+                enemyAgent.isStopped = true;
+                Invoke("StopSearching", 10);
+                enemyColor.GetComponent<Renderer>().material.color = Color.white;
+                state = State.searching;
+                break;
+        }
+    }
+
+    void StopSearching()
+    {
+        if (state == State.searching)
+        {
+            enemyAgent.isStopped = false;
+            SetState(State.retreating);
         }
     }
 
