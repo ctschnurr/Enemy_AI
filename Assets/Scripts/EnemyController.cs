@@ -39,8 +39,8 @@ public class EnemyController : MonoBehaviour
 
     Vector3 targetDirection;
 
-    float speed = 50;
-    float slowRotate = 0.25f;
+    float searchRotateSpeed = 50f;
+    float attackRotateSpeed = 0.25f;
 
     // Start is called before the first frame update
     void Start()
@@ -74,7 +74,7 @@ public class EnemyController : MonoBehaviour
         // get the component of the enemy prefab that changes color with state changes
         enemyColor = transform.Find("Color").gameObject;
 
-        slowRotate = slowRotate * Time.deltaTime;
+        attackRotateSpeed = attackRotateSpeed * Time.deltaTime;
     }
 
     // Update is called once per frame
@@ -89,7 +89,7 @@ public class EnemyController : MonoBehaviour
             case State.patrolling:
                 enemyAgent.SetDestination(nextWaypoint.position);
                 if (Vector3.Distance(nextWaypoint.position, transform.position) < 1) nextWaypoint = NextWaypoint(nextWaypoint);
-                if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
+                if (Vector3.Distance(playerPosition, transform.position) < 2.5) SetState(State.chasing);
                 break;
 
             // chase the player until in attack range
@@ -107,7 +107,7 @@ public class EnemyController : MonoBehaviour
             // enemy rotates to face the player and stays in attack range unless the player leaves range, then will give chase
             case State.attacking:
                 targetDirection = playerLastPosition - transform.position;
-                Vector3 newDirection = Vector3.RotateTowards(transform.forward, targetDirection, slowRotate, 0.0f);
+                Vector3 newDirection = Vector3.RotateTowards(transform.forward, targetDirection, attackRotateSpeed, 0.0f);
                 transform.rotation = Quaternion.LookRotation(newDirection);
                 if (Vector3.Distance(playerPosition, transform.position) > 2)
                 {
@@ -125,7 +125,7 @@ public class EnemyController : MonoBehaviour
 
             // once the enemy tracks the player to their last seen position they search by scanning the area unless player is detected
             case State.searching:
-                transform.Rotate(Vector3.up * (speed * Time.deltaTime));
+                transform.Rotate(Vector3.up * (searchRotateSpeed * Time.deltaTime));
                 if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
 
@@ -137,6 +137,7 @@ public class EnemyController : MonoBehaviour
     {
         CancelInvoke();
         if (enemyAgent.isStopped == true) enemyAgent.isStopped = false;
+
         switch (input)
         {
             case State.patrolling:
@@ -169,13 +170,14 @@ public class EnemyController : MonoBehaviour
 
             case State.searching:
                 enemyAgent.isStopped = true;
-                Invoke("StopSearching", 8);
+                Invoke("StopSearching", 7);
                 enemyColor.GetComponent<Renderer>().material.color = Color.white;
                 state = State.searching;
                 break;
         }
     }
 
+    // this method is invoked to stop the enemy searching for the player
     void StopSearching()
     {
         if (state == State.searching)
