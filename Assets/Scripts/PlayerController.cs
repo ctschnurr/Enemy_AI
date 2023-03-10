@@ -45,5 +45,9 @@ public class PlayerController : MonoBehaviour
             transform.Rotate(0.0f, -0.5f, 0.0f);
         }
 
+        if (Input.GetKey(KeyCode.Escape))
+        {
+            Application.Quit();
+        }
     }
 }

@@ -20,6 +20,7 @@ public class EnemyController : MonoBehaviour
     public UnityEngine.AI.NavMeshAgent enemyAgent;
     GameObject enemyObject;
     GameObject enemyColor;
+    Transform parent;
     Transform enemyBase;
 
     // variables for the patrol waypoints
@@ -36,7 +37,10 @@ public class EnemyController : MonoBehaviour
     Vector3 playerLastPosition = new Vector3(0, 0, 0);
     float playerDist;
 
+    Vector3 targetDirection;
+
     float speed = 50;
+    float slowRotate = 0.25f;
 
     // Start is called before the first frame update
     void Start()
@@ -57,7 +61,8 @@ public class EnemyController : MonoBehaviour
         waypointList.Add(waypoint4);
 
         // find the enemyBase object in the Unity scene and associate the variable with it
-        enemyBase = GameObject.Find("enemyBase").transform;
+        parent = transform.parent;
+        enemyBase = parent.Find("enemyBase").GetComponent<Transform>();
 
         // find the player object and associate it to the variable
         player = GameObject.Find("Player").gameObject;
@@ -68,6 +73,8 @@ public class EnemyController : MonoBehaviour
 
         // get the component of the enemy prefab that changes color with state changes
         enemyColor = transform.Find("Color").gameObject;
+
+        slowRotate = slowRotate * Time.deltaTime;
     }
 
     // Update is called once per frame
@@ -76,27 +83,32 @@ public class EnemyController : MonoBehaviour
         // grab player's current position
         playerPosition = player.transform.position;
 
-        // the enemy will behave according to its current state:
         switch (state)
         {
+            // enemy patrolls the waypoints
             case State.patrolling:
                 enemyAgent.SetDestination(nextWaypoint.position);
                 if (Vector3.Distance(nextWaypoint.position, transform.position) < 1) nextWaypoint = NextWaypoint(nextWaypoint);
                 if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
 
+            // chase the player until in attack range
             case State.chasing:
                 enemyAgent.SetDestination(playerPosition);
                 if (Vector3.Distance(playerPosition, transform.position) < 2) SetState(State.attacking);
                 break;
 
+            // if the player exits the line of sight he'll track to the location he last saw the player and then search the area
             case State.tracking:
                 enemyAgent.SetDestination(playerLastPosition);
                 if (Vector3.Distance(playerLastPosition, transform.position) < 1) SetState(State.searching);
-                //if (Vector3.Distance(playerPosition, transform.position) < 8) SetState(State.chasing);
                 break;
 
+            // enemy rotates to face the player and stays in attack range unless the player leaves range, then will give chase
             case State.attacking:
+                targetDirection = playerLastPosition - transform.position;
+                Vector3 newDirection = Vector3.RotateTowards(transform.forward, targetDirection, slowRotate, 0.0f);
+                transform.rotation = Quaternion.LookRotation(newDirection);
                 if (Vector3.Distance(playerPosition, transform.position) > 2)
                 {
                     enemyAgent.isStopped = false;
@@ -104,14 +116,17 @@ public class EnemyController : MonoBehaviour
                 }
                 break;
 
+            // after searching, if the player was not found the enemy will return to start position
             case State.retreating:
                 enemyAgent.SetDestination(enemyBase.position);
                 if (Vector3.Distance(enemyBase.position, transform.position) < 1) SetState(State.patrolling);
                 if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
 
+            // once the enemy tracks the player to their last seen position they search by scanning the area unless player is detected
             case State.searching:
                 transform.Rotate(Vector3.up * (speed * Time.deltaTime));
+                if (Vector3.Distance(playerPosition, transform.position) < 3) SetState(State.chasing);
                 break;
 
         }
@@ -120,6 +135,7 @@ public class EnemyController : MonoBehaviour
     // this method switches the state and makes any other associated changes, like the enemy mood indicator color
     public void SetState(State input)
     {
+        CancelInvoke();
         if (enemyAgent.isStopped == true) enemyAgent.isStopped = false;
         switch (input)
         {
@@ -140,6 +156,7 @@ public class EnemyController : MonoBehaviour
                 break;
 
             case State.attacking:
+                playerLastPosition = player.transform.position;
                 enemyAgent.isStopped = true;
                 enemyColor.GetComponent<Renderer>().material.color = Color.red;
                 state = State.attacking;
@@ -152,7 +169,7 @@ public class EnemyController : MonoBehaviour
 
             case State.searching:
                 enemyAgent.isStopped = true;
-                Invoke("StopSearching", 10);
+                Invoke("StopSearching", 8);
                 enemyColor.GetComponent<Renderer>().material.color = Color.white;
                 state = State.searching;
                 break;
